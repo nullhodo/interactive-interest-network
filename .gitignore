@@ -1,0 +1,22 @@
+# Node dependencies
+node_modules/
+
+# Production build output
+dist/
+dist-ssr/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# User specific or chat log
+chat.md
+
+# 最初の今だけ興味データ除外しとく
+interestData.ts
