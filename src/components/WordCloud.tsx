@@ -260,36 +260,71 @@ export const WordCloud = ({ data }: WordCloudProps) => {
 
     const newNodes: SimulationNode[] = [];
     const newLinks: SimulationLink[] = [];
-    const visited = new Set<string>();
     const currentSimulationNodesMap = new Map<string, SimulationNode>(
       simulationRef.current.nodes().map((node) => [node.id, node]),
     );
 
-    const traverse = (
-      nodeData: InterestNode,
-      parent: InterestNode | null = null,
-      depth = 0,
-      inheritedThemeColor: string | null = null,
-    ) => {
-      if (!nodeData || visited.has(nodeData.name)) return;
-      visited.add(nodeData.name);
+    // 1. ノードマップと親→子の隣接リストを作成
+    const nodeMap = new Map<string, InterestNode>(data.map((d) => [d.name, d]));
+    const childrenMap = new Map<string, string[]>();
+    data.forEach((node) => {
+      if (node.parents) {
+        node.parents.forEach((parent) => {
+          if (!childrenMap.has(parent)) {
+            childrenMap.set(parent, []);
+          }
+          childrenMap.get(parent)!.push(node.name);
+        });
+      }
+    });
 
-      const id = nodeData.name;
-      let nodeThemeColor = inheritedThemeColor;
-      if (nodeData.theme) {
-        nodeThemeColor = nodeData.theme;
+    // 2. BFS（幅優先探索）で表示するノード、深さ、主要な親を決定
+    const visibleNodeNames = new Set<string>();
+    const nodeDepths = new Map<string, number>();
+    const nodeParent = new Map<string, string | null>();
+
+    const queue: { name: string; parent: string | null; depth: number }[] = [];
+
+    // ルートノードをすべて初期キューに登録
+    data.filter((d) => d.isRoot).forEach((root) => {
+      queue.push({ name: root.name, parent: null, depth: 0 });
+    });
+
+    while (queue.length > 0) {
+      const { name, parent, depth } = queue.shift()!;
+      if (visibleNodeNames.has(name)) continue;
+
+      visibleNodeNames.add(name);
+      nodeDepths.set(name, depth);
+      nodeParent.set(name, parent);
+
+      // 親が展開されている場合のみ、その子供たちを表示候補に追加
+      if (expandedNodeIds.has(name)) {
+        const children = childrenMap.get(name) || [];
+        children.forEach((childName) => {
+          if (!visibleNodeNames.has(childName)) {
+            queue.push({ name: childName, parent: name, depth: depth + 1 });
+          }
+        });
       }
-      if (nodeData.themeColor) {
-        nodeThemeColor = nodeData.themeColor;
-      }
+    }
+
+    // 3. 表示対象ノードから SimulationNode を作成
+    visibleNodeNames.forEach((name) => {
+      const nodeData = nodeMap.get(name);
+      if (!nodeData) return;
+
+      const id = name;
+      const depth = nodeDepths.get(name) ?? 0;
+      const parentId = nodeParent.get(name) ?? null;
 
       const newNode: SimulationNode = {
         id,
-        name: nodeData.name,
+        name,
         depth,
-        parentId: parent ? parent.name : null,
+        parentId,
         data: nodeData,
-        themeColor: nodeThemeColor,
+        themeColor: nodeData.themeColor ?? null,
       };
 
       const oldSimulationNode = currentSimulationNodesMap.get(id);
@@ -301,36 +336,23 @@ export const WordCloud = ({ data }: WordCloudProps) => {
         newNode.fx = oldSimulationNode.fx;
         newNode.fy = oldSimulationNode.fy;
       } else {
-        // Assign random initial positions for new nodes
         newNode.x =
-          currentWidth / 2 + (Math.random() - 0.5) * currentWidth * 1.0; // より広く分散
+          currentWidth / 2 + (Math.random() - 0.5) * currentWidth * 1.0;
         newNode.y =
-          currentHeight / 2 + (Math.random() - 0.5) * currentHeight * 1.0; // より広く分散
+          currentHeight / 2 + (Math.random() - 0.5) * currentHeight * 1.0;
       }
       newNodes.push(newNode);
+    });
 
-      if (parent) {
-        newLinks.push({ source: parent.name, target: nodeData.name });
+    // 4. 表示対象ノード間を結ぶリンクを生成
+    data.forEach((node) => {
+      if (visibleNodeNames.has(node.name) && node.parents) {
+        node.parents.forEach((parentName) => {
+          if (visibleNodeNames.has(parentName)) {
+            newLinks.push({ source: parentName, target: node.name });
+          }
+        });
       }
-
-      // 子ノードを展開する条件: expandedNodeIdsにノードIDが含まれる場合のみ
-      const shouldExpand = expandedNodeIds.has(nodeData.name);
-
-      if (nodeData.children && shouldExpand) {
-        nodeData.children.forEach((child) =>
-          traverse(child, nodeData, depth + 1, nodeThemeColor),
-        );
-      }
-    };
-
-    // トップレベルノードのみを初期状態でトラバース
-    data.forEach((topLevelNode) => {
-      traverse(
-        topLevelNode,
-        null,
-        0,
-        topLevelNode.themeColor || topLevelNode.theme || null,
-      );
     });
 
     return { newNodes, newLinks };
@@ -351,6 +373,14 @@ export const WordCloud = ({ data }: WordCloudProps) => {
     if (!simulationRef.current || nodes.length === 0 || !svgRef.current) {
       return;
     }
+
+    // 子ノードを持っている（親である）ノードのセットを作成
+    const hasChildrenSet = new Set<string>();
+    data.forEach((node) => {
+      if (node.parents) {
+        node.parents.forEach((p) => hasChildrenSet.add(p));
+      }
+    });
 
     const simulation = simulationRef.current;
     const svg = d3.select(svgRef.current);
@@ -438,7 +468,7 @@ export const WordCloud = ({ data }: WordCloudProps) => {
         "drop-shadow(3px 3px 6px rgba(0,0,0,0.25)) drop-shadow(-3px -3px 6px rgba(255,255,255,0.8))",
       )
       .attr("class", (d) => {
-        const isPulse = d.data.children && !expandedNodeIds.has(d.id);
+        const isPulse = hasChildrenSet.has(d.id) && !expandedNodeIds.has(d.id);
         return `node-ellipse ${isPulse ? "animate-reflective-pulse" : ""}`;
       });
 

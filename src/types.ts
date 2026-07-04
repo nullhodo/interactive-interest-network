@@ -5,7 +5,8 @@ export interface InterestNode {
   url?: string;
   theme?: string;
   themeColor?: string;
-  children?: InterestNode[];
+  isRoot?: boolean;
+  parents?: string[];
 }
 
 export interface SimulationNode extends d3.SimulationNodeDatum {
