@@ -51,8 +51,9 @@ body {
   pointer-events: none;
 }
 
-/* D3 Ellipse Node */
-.node-ellipse {
+/* D3 Ellipse/Path Node */
+.node-ellipse,
+.node-path {
   transition: all 0.3s ease-in-out;
 }
 

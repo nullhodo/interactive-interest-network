@@ -35,6 +35,34 @@ const getNodeRy = (depth: number): number => {
   return Math.max(5, baseRy - depthReductionFactor); // 最小サイズをさらに小さく
 };
 
+/**
+ * 超楕円 (Superellipse / Squircle) のパスデータを生成する。
+ * 式: |x/rx|^n + |y/ry|^n = 1
+ *
+ * @param rx 横方向の半径 (半長軸)
+ * @param ry 縦方向の半径 (半短軸)
+ * @param n 形状を制御する指数。2で通常の楕円になり、大きくなるほど角の立った四角形に近づく（2.5〜4.0付近がスクワークルとして美しい）
+ * @returns SVGのd属性に使用可能なパス文字列
+ */
+const getSuperellipsePath = (rx: number, ry: number, n = 3): string => {
+  const steps = 64;
+  let pathData = "";
+  for (let i = 0; i <= steps; i++) {
+    const t = (i * 2 * Math.PI) / steps;
+    const cosT = Math.cos(t);
+    const sinT = Math.sin(t);
+    const x = rx * Math.sign(cosT) * Math.pow(Math.abs(cosT), 2 / n);
+    const y = ry * Math.sign(sinT) * Math.pow(Math.abs(sinT), 2 / n);
+    if (i === 0) {
+      pathData += `M ${x} ${y}`;
+    } else {
+      pathData += ` L ${x} ${y}`;
+    }
+  }
+  pathData += " Z";
+  return pathData;
+};
+
 interface WordCloudProps {
   data: InterestNode[];
 }
@@ -62,7 +90,7 @@ export const WordCloud = ({ data }: WordCloudProps) => {
   const HINT_DISPLAY_DURATION = 7000; // 各ヒントが表示される時間
 
   const hintMessagesMap: Record<HintKey, string> = {
-    clicked: "楕円をクリックして展開",
+    clicked: "ノードをクリックして展開",
     move_field: "空白をドラッグ、またはWASDキーや矢印キーでフィールドを移動",
     scrolled: "ホイールスクロールでズーム",
   };
@@ -106,7 +134,7 @@ export const WordCloud = ({ data }: WordCloudProps) => {
       g = svg.append("g").attr("class", "main-group");
     }
 
-    // グラデーションの定義 (石のような立体感を出すため)
+    // グラデーションの定義
     let defs = svg.select<SVGDefsElement>("defs");
     if (defs.empty()) {
       defs = svg.append("defs");
@@ -374,7 +402,7 @@ export const WordCloud = ({ data }: WordCloudProps) => {
       return;
     }
 
-    // 子ノードを持っている（親である）ノードのセットを作成
+    // 子ノードを持っているノードのセットを作成
     const hasChildrenSet = new Set<string>();
     data.forEach((node) => {
       if (node.parents) {
@@ -453,9 +481,12 @@ export const WordCloud = ({ data }: WordCloudProps) => {
       });
 
     node
-      .append("ellipse")
-      .attr("rx", (d) => getNodeRadius(d.name, d.depth))
-      .attr("ry", (d) => getNodeRy(d.depth))
+      .append("path")
+      .attr("d", (d) => {
+        const rx = getNodeRadius(d.name, d.depth);
+        const ry = getNodeRy(d.depth);
+        return getSuperellipsePath(rx, ry);
+      })
       .attr("fill", (d) =>
         d.themeColor
           ? `url(#themeGradient-${d.themeColor.replace(/[^\w]/g, "")})`
@@ -469,7 +500,7 @@ export const WordCloud = ({ data }: WordCloudProps) => {
       )
       .attr("class", (d) => {
         const isPulse = hasChildrenSet.has(d.id) && !expandedNodeIds.has(d.id);
-        return `node-ellipse ${isPulse ? "animate-reflective-pulse" : ""}`;
+        return `node-path ${isPulse ? "animate-reflective-pulse" : ""}`;
       });
 
     node
