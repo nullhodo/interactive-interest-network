@@ -63,6 +63,14 @@ const getSuperellipsePath = (rx: number, ry: number, n = 3): string => {
   return pathData;
 };
 
+// SVGのID属性などで使用できる安全な文字列を生成する関数（日本語・特殊文字対応）
+// 日本語名のノードでも光の反射のクリッピングが正しく動くようにするため
+const getSafeSvgId = (str: string): string => {
+  return encodeURIComponent(str)
+    .replace(/%/g, "_")
+    .replace(/[^\w]/g, "_");
+};
+
 interface WordCloudProps {
   data: InterestNode[];
 }
@@ -204,6 +212,54 @@ export const WordCloud = ({ data }: WordCloudProps) => {
       .append("stop")
       .attr("offset", "100%")
       .attr("stop-color", "#eeeeee");
+
+    // 反射光用のグラデーションを定義
+    const shineGradientId = "shineGradient";
+    defs.select(`#${shineGradientId}`).remove(); // 再描画時に古い定義を削除
+    const shineGradient = defs
+      .append("linearGradient")
+      .attr("id", shineGradientId)
+      .attr("x1", "0%")
+      .attr("y1", "0%")
+      .attr("x2", "100%")
+      .attr("y2", "100%");
+
+    /*
+    位置 (%)         0% ------- 25% ------ 50% ------ 75% ------ 100%
+    不透明度          0 (透明)    0 (透明)   0.4 (白)    0 (透明)    0 (透明)
+                                              [光の芯]
+    見た目イメージ    [透明]  --->  [透明] -> [光の線] -> [透明]  ---> [透明]
+    */
+
+    shineGradient
+      .append("stop")
+      .attr("offset", "0%")
+      .attr("stop-color", "#ffffff")
+      .attr("stop-opacity", 0);
+
+    shineGradient
+      .append("stop")
+      .attr("offset", "25%")
+      .attr("stop-color", "#ffffff")
+      .attr("stop-opacity", 0);
+
+    shineGradient
+      .append("stop")
+      .attr("offset", "50%")
+      .attr("stop-color", "#ffffff")
+      .attr("stop-opacity", 0.4);
+
+    shineGradient
+      .append("stop")
+      .attr("offset", "75%")
+      .attr("stop-color", "#ffffff")
+      .attr("stop-opacity", 0);
+
+    shineGradient
+      .append("stop")
+      .attr("offset", "100%")
+      .attr("stop-color", "#ffffff")
+      .attr("stop-opacity", 0);
 
     // Initialize simulation
     const linkForce = d3
@@ -487,6 +543,18 @@ export const WordCloud = ({ data }: WordCloudProps) => {
         }
       });
 
+    // 1. 各ノードの超楕円形クリップパスを定義 (シャドウにクリッピングがかからないよう別要素にする)
+    node
+      .append("clipPath")
+      .attr("id", (d) => `clip-${getSafeSvgId(d.id)}`)
+      .append("path")
+      .attr("d", (d) => {
+        const rx = getNodeRadius(d.name, d.depth);
+        const ry = getNodeRy(d.depth);
+        return getSuperellipsePath(rx, ry);
+      });
+
+    // 2. メインの超楕円を描画 (影はこの要素自体に付与してクリッピングの影響を受けないようにする)
     node
       .append("path")
       .attr("d", (d) => {
@@ -508,6 +576,25 @@ export const WordCloud = ({ data }: WordCloudProps) => {
       .attr("class", (d) => {
         const isPulse = hasChildrenSet.has(d.id) && !expandedNodeIds.has(d.id);
         return `node-path ${isPulse ? "animate-reflective-pulse" : ""}`;
+      });
+
+    // 3. クリッピングされた反射光グループを追加
+    const shineGroup = node
+      .append("g")
+      .attr("clip-path", (d) => `url(#clip-${getSafeSvgId(d.id)})`);
+
+    // その中に反射光の矩形を配置し、左上から右下へアニメーションさせる
+    shineGroup
+      .append("rect")
+      .attr("x", (d) => -getNodeRadius(d.name, d.depth) * 2)
+      .attr("y", (d) => -getNodeRy(d.depth) * 2)
+      .attr("width", (d) => getNodeRadius(d.name, d.depth) * 4)
+      .attr("height", (d) => getNodeRy(d.depth) * 4)
+      .attr("fill", "url(#shineGradient)")
+      .style("pointer-events", "none")
+      .attr("class", (d) => {
+        const isPulse = hasChildrenSet.has(d.id) && !expandedNodeIds.has(d.id);
+        return isPulse ? "animate-shine" : "hidden-shine";
       });
 
     node
