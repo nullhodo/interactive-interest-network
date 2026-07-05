@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import * as d3 from "d3";
-import { InterestNode, SimulationNode, SimulationLink } from "../types";
+import { SimulationNode, SimulationLink, InterestNode } from "../types";
 import {
   getNodeRadius,
   getNodeRy,
@@ -8,6 +8,7 @@ import {
   getSafeSvgId,
 } from "../utils/nodeUtils";
 import { defineSvgGradients } from "../utils/svgDefs";
+import { generateNodesAndLinks as buildGraphData, getHasChildrenSet } from "../utils/graphUtils";
 
 interface WordCloudProps {
   data: InterestNode[];
@@ -168,114 +169,17 @@ export const WordCloud = ({ data }: WordCloudProps) => {
     const currentWidth = svgElement.clientWidth;
     const currentHeight = svgElement.clientHeight;
 
-    const newNodes: SimulationNode[] = [];
-    const newLinks: SimulationLink[] = [];
     const currentSimulationNodesMap = new Map<string, SimulationNode>(
       simulationRef.current.nodes().map((node) => [node.id, node]),
     );
 
-    // 1. ノードマップと親 → 子の隣接リストを作成
-    const nodeMap = new Map<string, InterestNode>(data.map((d) => [d.name, d]));
-    const childrenMap = new Map<string, string[]>();
-    data.forEach((node) => {
-      if (node.parents) {
-        node.parents.forEach((parent) => {
-          if (!childrenMap.has(parent)) {
-            childrenMap.set(parent, []);
-          }
-          childrenMap.get(parent)!.push(node.name);
-        });
-      }
-    });
-
-    // 2. BFSで表示するノード、深さ、主要な親を決定
-    const visibleNodeNames = new Set<string>();
-    const nodeDepths = new Map<string, number>();
-    const nodeParent = new Map<string, string | null>();
-
-    const queue: { name: string; parent: string | null; depth: number }[] = [];
-
-    // ルートノードをすべて初期キューに登録
-    data.filter((d) => d.isRoot).forEach((root) => {
-      queue.push({ name: root.name, parent: null, depth: 0 });
-    });
-
-    while (queue.length > 0) {
-      const { name, parent, depth } = queue.shift()!;
-      if (visibleNodeNames.has(name)) continue;
-
-      visibleNodeNames.add(name);
-      nodeDepths.set(name, depth);
-      nodeParent.set(name, parent);
-
-      // 親が展開されている場合のみ、その子供たちを表示候補に追加
-      if (expandedNodeIds.has(name)) {
-        const children = childrenMap.get(name) || [];
-        children.forEach((childName) => {
-          if (!visibleNodeNames.has(childName)) {
-            queue.push({ name: childName, parent: name, depth: depth + 1 });
-          }
-        });
-      }
-    }
-
-    // 3. 表示対象ノードから SimulationNode を作成
-    visibleNodeNames.forEach((name) => {
-      const nodeData = nodeMap.get(name);
-      if (!nodeData) return;
-
-      const id = name;
-      const depth = nodeDepths.get(name) ?? 0;
-      const parentId = nodeParent.get(name) ?? null;
-
-      const newNode: SimulationNode = {
-        id,
-        name,
-        depth,
-        parentId,
-        data: nodeData,
-        themeColor: nodeData.themeColor ?? null,
-      };
-
-      const oldSimulationNode = currentSimulationNodesMap.get(id);
-      if (oldSimulationNode) {
-        newNode.x = oldSimulationNode.x;
-        newNode.y = oldSimulationNode.y;
-        newNode.vx = oldSimulationNode.vx;
-        newNode.vy = oldSimulationNode.vy;
-        newNode.fx = oldSimulationNode.fx;
-        newNode.fy = oldSimulationNode.fy;
-      } else {
-        // 親ノードがすでにシミュレーション上に存在する場合は、親ノードの位置を初期位置とする
-        const parentSimNode = parentId ? currentSimulationNodesMap.get(parentId) : null;
-        if (parentSimNode && parentSimNode.x !== undefined && parentSimNode.y !== undefined) {
-          // 子ノードが重なって巨大な斥力が発生するのを防ぐため、親の周囲に少し散らして配置する
-          const angle = Math.random() * Math.PI * 2;
-          const radius = 20 + Math.random() * 20; // 20px ~ 40px の範囲
-          newNode.x = parentSimNode.x + Math.cos(angle) * radius;
-          newNode.y = parentSimNode.y + Math.sin(angle) * radius;
-        } else {
-          newNode.x =
-            currentWidth / 2 + (Math.random() - 0.5) * currentWidth * 1.0;
-          newNode.y =
-            currentHeight / 2 + (Math.random() - 0.5) * currentHeight * 1.0;
-        }
-      }
-      newNodes.push(newNode);
-    });
-
-    // 4. 表示対象ノード間を結ぶリンクを生成
-    data.forEach((node) => {
-      if (visibleNodeNames.has(node.name) && node.parents) {
-        node.parents.forEach((parentName) => {
-          if (visibleNodeNames.has(parentName)) {
-            newLinks.push({ source: parentName, target: node.name });
-          }
-        });
-      }
-    });
-
-    return { newNodes, newLinks };
+    return buildGraphData(
+      data,
+      expandedNodeIds,
+      currentSimulationNodesMap,
+      currentWidth,
+      currentHeight
+    );
   }, [data, expandedNodeIds]);
 
   // 3. State Update Trigger (runs when expandedNodeIds changes, or on initial mount)
@@ -295,12 +199,7 @@ export const WordCloud = ({ data }: WordCloudProps) => {
     }
 
     // 子ノードを持っているノードのセットを作成
-    const hasChildrenSet = new Set<string>();
-    data.forEach((node) => {
-      if (node.parents) {
-        node.parents.forEach((p) => hasChildrenSet.add(p));
-      }
-    });
+    const hasChildrenSet = getHasChildrenSet(data);
 
     const simulation = simulationRef.current;
     const svg = d3.select(svgRef.current);
