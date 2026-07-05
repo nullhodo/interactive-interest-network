@@ -122,7 +122,7 @@ export const WordCloud = ({ data }: WordCloudProps) => {
           setUserActions((prev) => ({ ...prev, scrolled: true }));
         }
       });
-    svg.call(zoomRef.current);
+    svg.call(zoomRef.current).on("dblclick.zoom", null);
 
     // Initial resize handler setup
     const handleResize = () => {
