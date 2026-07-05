@@ -104,7 +104,7 @@ export const WordCloud = ({ data }: WordCloudProps) => {
         "collide",
         d3
           .forceCollide<SimulationNode>()
-          .radius((d) => getNodeRadius(d.name, d.depth) + 30)
+          .radius((d) => Math.max(getNodeRadius(d.name, d.depth), getNodeRy(d.name, d.depth)) + 30)
           .iterations(3),
       )
       .force("x", d3.forceX(width / 2).strength(0.3))
@@ -452,7 +452,7 @@ export const WordCloud = ({ data }: WordCloudProps) => {
       .append("path")
       .attr("d", (d) => {
         const rx = getNodeRadius(d.name, d.depth);
-        const ry = getNodeRy(d.depth);
+        const ry = getNodeRy(d.name, d.depth);
         return getSuperellipsePath(rx, ry);
       });
 
@@ -461,7 +461,7 @@ export const WordCloud = ({ data }: WordCloudProps) => {
       .append("path")
       .attr("d", (d) => {
         const rx = getNodeRadius(d.name, d.depth);
-        const ry = getNodeRy(d.depth);
+        const ry = getNodeRy(d.name, d.depth);
         return getSuperellipsePath(rx, ry);
       })
       .attr("fill", (d) =>
@@ -488,9 +488,9 @@ export const WordCloud = ({ data }: WordCloudProps) => {
     shineGroupEnter
       .append("rect")
       .attr("x", (d) => -getNodeRadius(d.name, d.depth) * 2)
-      .attr("y", (d) => -getNodeRy(d.depth) * 2)
+      .attr("y", (d) => -getNodeRy(d.name, d.depth) * 2)
       .attr("width", (d) => getNodeRadius(d.name, d.depth) * 4)
-      .attr("height", (d) => getNodeRy(d.depth) * 4)
+      .attr("height", (d) => getNodeRy(d.name, d.depth) * 4)
       .attr("fill", "url(#shineGradient)")
       .style("pointer-events", "none")
       .attr("class", (d) => {
@@ -502,7 +502,7 @@ export const WordCloud = ({ data }: WordCloudProps) => {
     nodeContentEnter
       .append("text")
       .attr("text-anchor", "middle")
-      .attr("dominant-baseline", "middle")
+      .attr("dominant-baseline", "central")
       .attr("fill", (d) => (d.data.url ? "#4d91daff" : "#555"))
       .style("font-size", (d) => {
         const baseSize = 22;
@@ -512,23 +512,37 @@ export const WordCloud = ({ data }: WordCloudProps) => {
         else if (d.depth === 2) depthReduction = 20;
         else depthReduction = 24;
 
+        const lines = d.name.split("\n");
+        const maxLineLength = Math.max(...lines.map((l) => l.length));
+
         let calculatedSize = Math.max(
           8,
-          baseSize + (d.name.length < 5 ? 4 : 0) - depthReduction,
+          baseSize + (maxLineLength < 5 ? 4 : 0) - depthReduction,
         );
 
-        if (d.name.length > 8 && d.depth > 0) {
-          calculatedSize *= 1 - (d.name.length - 8) * 0.04;
+        if (maxLineLength > 8 && d.depth > 0) {
+          calculatedSize *= 1 - (maxLineLength - 8) * 0.04;
         }
-        if (d.name.length > 12) {
+        if (maxLineLength > 12) {
           calculatedSize *= 0.7;
         }
 
         return `${Math.max(8, calculatedSize)}px`;
       })
       .style("font-weight", "bold")
-      .text((d) => d.name)
-      .attr("pointer-events", "none");
+      .attr("pointer-events", "none")
+      .each(function (d) {
+        const textElement = d3.select(this);
+        const lines = d.name.split("\n");
+        lines.forEach((line, i) => {
+          textElement
+            .append("tspan")
+            .attr("x", 0)
+            .attr("dy", i === 0 ? `-${(lines.length - 1) * 0.6}em` : "1.2em")
+            .style("pointer-events", "none") // 明示的にtspanにも付与してマウスイベントのブロックを防止
+            .text(line);
+        });
+      });
 
     // --- Update (既存ノードの状態更新) ---
     nodeSelection.select("path.node-path").attr("class", (d) => {
