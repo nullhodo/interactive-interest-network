@@ -508,10 +508,7 @@ export const WordCloud = ({ data }: WordCloudProps) => {
       .attr("text-anchor", "middle")
       .attr("dominant-baseline", "middle")
       .attr("fill", (d) => {
-        if (d.id === "X" || d.id === "Bluesky") {
-          return "#333";
-        }
-        return d.data.url ? "#007bff" : "#333";
+        return d.data.url ? "#4d91daff" : "#555";
       })
       .style("font-size", (d) => {
         const baseSize = 22;
@@ -536,12 +533,6 @@ export const WordCloud = ({ data }: WordCloudProps) => {
         return `${Math.max(8, calculatedSize)}px`;
       })
       .style("font-weight", "bold")
-      .style("text-decoration", (d) => {
-        if (d.id === "X" || d.id === "Bluesky") {
-          return "none";
-        }
-        return d.data.url ? "underline" : "none";
-      })
       .text((d) => d.name)
       .attr("pointer-events", "none");
 

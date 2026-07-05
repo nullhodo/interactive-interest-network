@@ -2,7 +2,7 @@ import { InterestNode } from "../types";
 import { baseCategories } from "./interestData";
 
 const calculateDynamicSaturation = (numElements: number): number => {
-  const baseSaturation = 35; // 要素が少ない場合の最大彩度
+  const baseSaturation = 50; // 要素が少ない場合の最大彩度
   const saturationReductionPerElement = 2; // 要素1つあたりの彩度減少量
   const minCalculatedSaturation = 15; // 彩度の最小値
 
