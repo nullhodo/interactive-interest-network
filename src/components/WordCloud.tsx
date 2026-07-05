@@ -1,79 +1,13 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import * as d3 from "d3";
 import { InterestNode, SimulationNode, SimulationLink } from "../types";
-
-// ノードの初期半径を計算する関数 (深さに応じてサイズを調整)
-const getNodeRadius = (name: string, depth: number): number => {
-  const baseRadius = 75;
-  const textLengthFactor = name.length * 3.5;
-  // 深くなるほどサイズを大幅に小さくする
-  let depthReductionFactor: number;
-  if (depth === 0) {
-    depthReductionFactor = 0;
-  } else if (depth === 1) {
-    depthReductionFactor = 40; // 親子間のサイズ差を緩やかに
-  } else if (depth === 2) {
-    depthReductionFactor = 65; // 孫要素のサイズを緩やかに
-  } else {
-    depthReductionFactor = 75; // ひ孫要素以降を緩やかに
-  }
-
-  return Math.max(8, baseRadius + textLengthFactor - depthReductionFactor);
-};
-
-// ノードの初期y半径を計算する関数 (楕円の縦幅、深さに応じて調整)
-const getNodeRy = (depth: number): number => {
-  const baseRy = 60;
-  // 深くなるほどサイズを大幅に小さくする
-  let depthReductionFactor: number;
-  if (depth === 0) {
-    depthReductionFactor = 0;
-  } else if (depth === 1) {
-    depthReductionFactor = 30; // 親子間のサイズ差を緩やかに
-  } else if (depth === 2) {
-    depthReductionFactor = 40; // 孫要素のサイズを緩やかに
-  } else {
-    depthReductionFactor = 45; // ひ孫要素以降を緩やかに
-  }
-
-  return Math.max(5, baseRy - depthReductionFactor);
-};
-
-/**
- * superellipseのパスデータを生成する。
- * 式: |x/rx|^n + |y/ry|^n = 1
- *
- * @param rx 横方向の半径 (半長軸)
- * @param ry 縦方向の半径 (半短軸)
- * @param n 形状を制御する指数。2で通常の楕円になり、大きくなるほど角の立った四角形に近づく（2.5〜4.0付近がスクワークルとして美しい）
- * @returns SVGのd属性に使用可能なパス文字列
- */
-const getSuperellipsePath = (rx: number, ry: number, n = 3): string => {
-  const steps = 64;
-  let pathData = "";
-  for (let i = 0; i <= steps; i++) {
-    const t = (i * 2 * Math.PI) / steps;
-    const cosT = Math.cos(t);
-    const sinT = Math.sin(t);
-    const x = rx * Math.sign(cosT) * Math.pow(Math.abs(cosT), 2 / n);
-    const y = ry * Math.sign(sinT) * Math.pow(Math.abs(sinT), 2 / n);
-    if (i === 0) {
-      pathData += `M ${x} ${y}`;
-    } else {
-      pathData += ` L ${x} ${y}`;
-    }
-  }
-  pathData += " Z";
-  return pathData;
-};
-
-// SVGのID属性などで使用できる安全な文字列を生成する関数（日本語・特殊文字対応）
-// 日本語名のノードでも光の反射のクリッピングが正しく動くようにするため
-const getSafeSvgId = (str: string): string => {
-  return encodeURIComponent(str)
-    .replace(/%/g, "_")
-    .replace(/[^\w]/g, "_");
-};
+import {
+  getNodeRadius,
+  getNodeRy,
+  getSuperellipsePath,
+  getSafeSvgId,
+} from "../utils/nodeUtils";
+import { defineSvgGradients } from "../utils/svgDefs";
 
 interface WordCloudProps {
   data: InterestNode[];
@@ -146,124 +80,8 @@ export const WordCloud = ({ data }: WordCloudProps) => {
       g = svg.append("g").attr("class", "main-group");
     }
 
-    // グラデーションの定義
-    let defs = svg.select<SVGDefsElement>("defs");
-    if (defs.empty()) {
-      defs = svg.append("defs");
-    }
-
-    // 各テーマカラーに対応するグラデーションを生成
-    const uniqueThemeColors = Array.from(
-      new Set(data.map((d) => d.themeColor).filter(Boolean)),
-    ) as string[];
-    uniqueThemeColors.forEach((color) => {
-      const gradientId = `themeGradient-${color.replace(/[^\w]/g, "")}`;
-      defs.select(`#${gradientId}`).remove();
-
-      const linearGradient = defs
-        .append("linearGradient")
-        .attr("id", gradientId)
-        .attr("x1", "0%")
-        .attr("y1", "0%")
-        .attr("x2", "100%")
-        .attr("y2", "100%");
-
-      const hsl = d3.hsl(color);
-      linearGradient
-        .append("stop")
-        .attr("offset", "0%")
-        .attr(
-          "stop-color",
-          d3.hsl(hsl.h, hsl.s, Math.min(1, hsl.l + 0.08)).toString(),
-        );
-
-      linearGradient
-        .append("stop")
-        .attr("offset", "50%")
-        .attr("stop-color", color);
-
-      linearGradient
-        .append("stop")
-        .attr("offset", "100%")
-        .attr(
-          "stop-color",
-          d3.hsl(hsl.h, hsl.s, Math.max(0, hsl.l - 0.08)).toString(),
-        );
-    });
-
-    // デフォルトの石のようなグラデーション
-    const defaultGradientId = "stoneGradient";
-    defs.select(`#${defaultGradientId}`).remove();
-    const defaultLinearGradient = defs
-      .append("linearGradient")
-      .attr("id", defaultGradientId)
-      .attr("x1", "0%")
-      .attr("y1", "0%")
-      .attr("x2", "100%")
-      .attr("y2", "100%");
-
-    defaultLinearGradient
-      .append("stop")
-      .attr("offset", "0%")
-      .attr("stop-color", "#ffffff");
-
-    defaultLinearGradient
-      .append("stop")
-      .attr("offset", "50%")
-      .attr("stop-color", "#f8f8f8");
-
-    defaultLinearGradient
-      .append("stop")
-      .attr("offset", "100%")
-      .attr("stop-color", "#eeeeee");
-
-    // 反射光用のグラデーションを定義
-    const shineGradientId = "shineGradient";
-    defs.select(`#${shineGradientId}`).remove(); // 再描画時に古い定義を削除
-    const shineGradient = defs
-      .append("linearGradient")
-      .attr("id", shineGradientId)
-      .attr("x1", "0%")
-      .attr("y1", "0%")
-      .attr("x2", "100%")
-      .attr("y2", "100%");
-
-    /*
-    位置 (%)         0% ------- 25% ------ 50% ------ 75% ------ 100%
-    不透明度          0 (透明)    0 (透明)   0.4 (白)    0 (透明)    0 (透明)
-                                              [光の芯]
-    見た目イメージ    [透明]  --->  [透明] -> [光の線] -> [透明]  ---> [透明]
-    */
-
-    shineGradient
-      .append("stop")
-      .attr("offset", "0%")
-      .attr("stop-color", "#ffffff")
-      .attr("stop-opacity", 0);
-
-    shineGradient
-      .append("stop")
-      .attr("offset", "25%")
-      .attr("stop-color", "#ffffff")
-      .attr("stop-opacity", 0);
-
-    shineGradient
-      .append("stop")
-      .attr("offset", "50%")
-      .attr("stop-color", "#ffffff")
-      .attr("stop-opacity", 0.4);
-
-    shineGradient
-      .append("stop")
-      .attr("offset", "75%")
-      .attr("stop-color", "#ffffff")
-      .attr("stop-opacity", 0);
-
-    shineGradient
-      .append("stop")
-      .attr("offset", "100%")
-      .attr("stop-color", "#ffffff")
-      .attr("stop-opacity", 0);
+    // グラデーション等の定義を外部ユーティリティに委譲
+    defineSvgGradients(svg, data);
 
     // Initialize simulation
     const linkForce = d3
