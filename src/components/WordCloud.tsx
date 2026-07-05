@@ -364,10 +364,17 @@ export const WordCloud = ({ data }: WordCloudProps) => {
         newNode.fx = oldSimulationNode.fx;
         newNode.fy = oldSimulationNode.fy;
       } else {
-        newNode.x =
-          currentWidth / 2 + (Math.random() - 0.5) * currentWidth * 1.0;
-        newNode.y =
-          currentHeight / 2 + (Math.random() - 0.5) * currentHeight * 1.0;
+        // 親ノードがすでにシミュレーション上に存在する場合は、親ノードの位置を初期位置とする
+        const parentSimNode = parentId ? currentSimulationNodesMap.get(parentId) : null;
+        if (parentSimNode && parentSimNode.x !== undefined && parentSimNode.y !== undefined) {
+          newNode.x = parentSimNode.x + (Math.random() - 0.5) * 10;
+          newNode.y = parentSimNode.y + (Math.random() - 0.5) * 10;
+        } else {
+          newNode.x =
+            currentWidth / 2 + (Math.random() - 0.5) * currentWidth * 1.0;
+          newNode.y =
+            currentHeight / 2 + (Math.random() - 0.5) * currentHeight * 1.0;
+        }
       }
       newNodes.push(newNode);
     });
