@@ -573,10 +573,19 @@ export const WordCloud = ({ data }: WordCloudProps) => {
         // 展開・収納アニメーション中（ANIMATION_DURATION）は、クリックした親ノードの座標を固定してズレを防ぐ
         d.fx = d.x;
         d.fy = d.y;
+        
+        const targetId = d.id;
         setTimeout(() => {
-          // ドラッグ中でなければ固定を解除
-          d.fx = null;
-          d.fy = null;
+          // 再生成されたシミュレーション内の最新のノードを見つけて固定を解除する
+          if (simulationRef.current) {
+            const latestNode = simulationRef.current
+              .nodes()
+              .find((n) => n.id === targetId);
+            if (latestNode) {
+              latestNode.fx = null;
+              latestNode.fy = null;
+            }
+          }
         }, ANIMATION_DURATION);
 
         if (d.data.url) {
@@ -817,9 +826,9 @@ export const WordCloud = ({ data }: WordCloudProps) => {
 
     let alphaToUse = 0.1;
     if (currentNodeCount < previousNodeCount) {
-      alphaToUse = 0.01; // 減ったときは静かに再配置（斥力の急激な爆発を防ぐ）
+      alphaToUse = 0.08; // 減ったときは程よく静かに再配置（広がったまま固まるのを防ぐ）
     } else if (currentNodeCount > previousNodeCount) {
-      alphaToUse = 0.01; // 増えたときも静かに配置（親ノードが弾け飛ぶのを防ぐ）
+      alphaToUse = 0.08; // 増えたときも穏やかに配置（急な弾け飛びを防ぎつつ整列させる）
     }
 
     // 初回ロード時
