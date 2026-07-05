@@ -427,8 +427,11 @@ export const WordCloud = ({ data }: WordCloudProps) => {
         // 親ノードがすでにシミュレーション上に存在する場合は、親ノードの位置を初期位置とする
         const parentSimNode = parentId ? currentSimulationNodesMap.get(parentId) : null;
         if (parentSimNode && parentSimNode.x !== undefined && parentSimNode.y !== undefined) {
-          newNode.x = parentSimNode.x + (Math.random() - 0.5) * 10;
-          newNode.y = parentSimNode.y + (Math.random() - 0.5) * 10;
+          // 子ノードが重なって巨大な斥力が発生するのを防ぐため、親の周囲に少し散らして配置する
+          const angle = Math.random() * Math.PI * 2;
+          const radius = 20 + Math.random() * 20; // 20px ~ 40px の範囲
+          newNode.x = parentSimNode.x + Math.cos(angle) * radius;
+          newNode.y = parentSimNode.y + Math.sin(angle) * radius;
         } else {
           newNode.x =
             currentWidth / 2 + (Math.random() - 0.5) * currentWidth * 1.0;
@@ -566,7 +569,7 @@ export const WordCloud = ({ data }: WordCloudProps) => {
       .style("cursor", (d) => (d.data.url ? "pointer" : "grab"))
       .on("click", (event, d) => {
         setUserActions((prev) => ({ ...prev, clicked: true }));
-        
+
         // 展開・収納アニメーション中（ANIMATION_DURATION）は、クリックした親ノードの座標を固定してズレを防ぐ
         d.fx = d.x;
         d.fy = d.y;
@@ -752,7 +755,7 @@ export const WordCloud = ({ data }: WordCloudProps) => {
       node.each(function (d: any) {
         let targetX = d.x ?? 0;
         let targetY = d.y ?? 0;
-        
+
         // シミュレーション対象なら最新の座標を取得
         const sn = simNodesMap.get(d.id);
         if (sn) {
@@ -814,9 +817,9 @@ export const WordCloud = ({ data }: WordCloudProps) => {
 
     let alphaToUse = 0.1;
     if (currentNodeCount < previousNodeCount) {
-      alphaToUse = 0.03; // 減ったときは静かに再配置（斥力の急激な爆発を防ぐ）
+      alphaToUse = 0.01; // 減ったときは静かに再配置（斥力の急激な爆発を防ぐ）
     } else if (currentNodeCount > previousNodeCount) {
-      alphaToUse = 0.25; // 増えたときは弾けるように配置
+      alphaToUse = 0.01; // 増えたときも静かに配置（親ノードが弾け飛ぶのを防ぐ）
     }
 
     // 初回ロード時
