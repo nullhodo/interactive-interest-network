@@ -151,6 +151,10 @@ export const WordCloud = ({ data }: WordCloudProps) => {
       if (simulationRef.current) {
         simulationRef.current.stop();
       }
+      // HMR時やデータソース変更時に、古いD3要素が画面に残るのを防ぐための完全リセット
+      if (svgElement) {
+        d3.select(svgElement).selectAll("*").remove();
+      }
     };
   }, [data]); // Run only on mount and if data ref changes
 
