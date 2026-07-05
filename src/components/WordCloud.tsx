@@ -4,39 +4,43 @@ import { InterestNode, SimulationNode, SimulationLink } from "../types";
 
 // ノードの初期半径を計算する関数 (深さに応じてサイズを調整)
 const getNodeRadius = (name: string, depth: number): number => {
-  const baseRadius = 75; // 基本半径をさらに大きく
-  // アイコンの場合はテキスト長の影響を減らす
-  const textLengthFactor =
-    name.length * 3.5 * (name === "X" || name === "Bluesky" ? 0.5 : 1);
+  const baseRadius = 75;
+  const textLengthFactor = name.length * 3.5;
   // 深くなるほどサイズを大幅に小さくする
   let depthReductionFactor: number;
-  if (depth === 0) depthReductionFactor = 0;
-  else if (depth === 1)
+  if (depth === 0) {
+    depthReductionFactor = 0;
+  } else if (depth === 1) {
     depthReductionFactor = 40; // 親子間のサイズ差を緩やかに
-  else if (depth === 2)
+  } else if (depth === 2) {
     depthReductionFactor = 65; // 孫要素のサイズを緩やかに
-  else depthReductionFactor = 75; // ひ孫要素以降を緩やかに
+  } else {
+    depthReductionFactor = 75; // ひ孫要素以降を緩やかに
+  }
 
-  return Math.max(8, baseRadius + textLengthFactor - depthReductionFactor); // 最小サイズをさらに小さく
+  return Math.max(8, baseRadius + textLengthFactor - depthReductionFactor);
 };
 
 // ノードの初期y半径を計算する関数 (楕円の縦幅、深さに応じて調整)
 const getNodeRy = (depth: number): number => {
-  const baseRy = 60; // 基本縦幅をさらに大きく
+  const baseRy = 60;
   // 深くなるほどサイズを大幅に小さくする
   let depthReductionFactor: number;
-  if (depth === 0) depthReductionFactor = 0;
-  else if (depth === 1)
+  if (depth === 0) {
+    depthReductionFactor = 0;
+  } else if (depth === 1) {
     depthReductionFactor = 30; // 親子間のサイズ差を緩やかに
-  else if (depth === 2)
+  } else if (depth === 2) {
     depthReductionFactor = 40; // 孫要素のサイズを緩やかに
-  else depthReductionFactor = 45; // ひ孫要素以降を緩やかに
+  } else {
+    depthReductionFactor = 45; // ひ孫要素以降を緩やかに
+  }
 
-  return Math.max(5, baseRy - depthReductionFactor); // 最小サイズをさらに小さく
+  return Math.max(5, baseRy - depthReductionFactor);
 };
 
 /**
- * 超楕円 (Superellipse / Squircle) のパスデータを生成する。
+ * superellipseのパスデータを生成する。
  * 式: |x/rx|^n + |y/ry|^n = 1
  *
  * @param rx 横方向の半径 (半長軸)
@@ -93,14 +97,14 @@ export const WordCloud = ({ data }: WordCloudProps) => {
     new Set(),
   );
 
-  // 操作教示のためのステート
+  // 操作ヒントのためのステート
   const HINT_INITIAL_DELAY = 5000; // 最初のヒントが表示されるまでの時間
   const HINT_DISPLAY_DURATION = 7000; // 各ヒントが表示される時間
 
   const hintMessagesMap: Record<HintKey, string> = {
-    clicked: "ノードをクリックして展開",
-    move_field: "空白をドラッグ、またはWASDキーや矢印キーでフィールドを移動",
-    scrolled: "ホイールスクロールでズーム",
+    clicked: "四角形をクリックして展開",
+    move_field: "ドラッグでフィールドを移動",
+    scrolled: "スクロールでズーム",
   };
   const hintOrder: HintKey[] = ["clicked", "move_field", "scrolled"];
 
@@ -348,7 +352,7 @@ export const WordCloud = ({ data }: WordCloudProps) => {
       simulationRef.current.nodes().map((node) => [node.id, node]),
     );
 
-    // 1. ノードマップと親→子の隣接リストを作成
+    // 1. ノードマップと親 → 子の隣接リストを作成
     const nodeMap = new Map<string, InterestNode>(data.map((d) => [d.name, d]));
     const childrenMap = new Map<string, string[]>();
     data.forEach((node) => {
@@ -362,7 +366,7 @@ export const WordCloud = ({ data }: WordCloudProps) => {
       }
     });
 
-    // 2. BFS（幅優先探索）で表示するノード、深さ、主要な親を決定
+    // 2. BFSで表示するノード、深さ、主要な親を決定
     const visibleNodeNames = new Set<string>();
     const nodeDepths = new Map<string, number>();
     const nodeParent = new Map<string, string | null>();
@@ -543,7 +547,7 @@ export const WordCloud = ({ data }: WordCloudProps) => {
         }
       });
 
-    // 1. 各ノードの超楕円形クリップパスを定義 (シャドウにクリッピングがかからないよう別要素にする)
+    // 1. 各ノードのsuperellipseクリップパスを定義 (シャドウにクリッピングがかからないよう別要素)
     node
       .append("clipPath")
       .attr("id", (d) => `clip-${getSafeSvgId(d.id)}`)
@@ -554,7 +558,7 @@ export const WordCloud = ({ data }: WordCloudProps) => {
         return getSuperellipsePath(rx, ry);
       });
 
-    // 2. メインの超楕円を描画 (影はこの要素自体に付与してクリッピングの影響を受けないようにする)
+    // 2. メインのsuperellipseを描画 (影はこの要素自体に付与してクリッピングの影響を受けないようにする)
     node
       .append("path")
       .attr("d", (d) => {
