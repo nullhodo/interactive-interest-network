@@ -489,16 +489,47 @@ export const WordCloud = ({ data }: WordCloudProps) => {
       linkForce.links(links);
     }
 
-    // Clear and redraw elements
-    g.selectAll("*").remove();
+    // --- コンテナを1回だけ生成 ---
+    let linksGroup = g.select<SVGGElement>(".links-group");
+    if (linksGroup.empty()) {
+      linksGroup = g.append("g").attr("class", "links-group");
+    }
+    let nodesGroup = g.select<SVGGElement>(".nodes-group");
+    if (nodesGroup.empty()) {
+      nodesGroup = g.append("g").attr("class", "nodes-group");
+    }
 
-    const link = g
-      .append("g")
-      .attr("stroke", "#999")
-      .attr("stroke-opacity", 0.6)
+    // --- Link のデータバインド ---
+    const linkSelection = linksGroup
       .selectAll<SVGLineElement, SimulationLink>("line")
-      .data(links)
-      .join("line");
+      .data(links, (d) => {
+        const sourceId = typeof d.source === "object" ? d.source.id : d.source;
+        const targetId = typeof d.target === "object" ? d.target.id : d.target;
+        return `${sourceId}-${targetId}`;
+      });
+
+    const ANIMATION_DURATION = 350;
+
+    const linkEnter = linkSelection
+      .enter()
+      .append("line")
+      .attr("stroke", "#999")
+      .attr("stroke-opacity", 0)
+      .call((e) => e.transition().duration(ANIMATION_DURATION).attr("stroke-opacity", 0.6));
+
+    const linkExit = linkSelection.exit();
+    linkExit
+      .transition()
+      .duration(ANIMATION_DURATION)
+      .style("opacity", 0)
+      .remove();
+
+    const link = linkSelection.merge(linkEnter);
+
+    // --- Node のデータバインド ---
+    const nodeSelection = nodesGroup
+      .selectAll<SVGGElement, SimulationNode>("g.node")
+      .data(nodes, (d) => d.id);
 
     const dragBehavior = d3
       .drag<SVGGElement, SimulationNode>()
@@ -522,15 +553,29 @@ export const WordCloud = ({ data }: WordCloudProps) => {
         d.fy = null;
       });
 
-    const node = g
+    // Enter (新規ノードの追加)
+    const nodeEnter = nodeSelection
+      .enter()
       .append("g")
-      .selectAll<SVGGElement, SimulationNode>("g")
-      .data(nodes)
-      .join("g")
+      .attr("class", "node")
+      .each(function (d: any) {
+        d._enterProgress = 0; // 出現アニメーション用進捗
+      })
+      .attr("transform", (d) => `translate(${d.x ?? 0},${d.y ?? 0})`)
       .call(dragBehavior)
       .style("cursor", (d) => (d.data.url ? "pointer" : "grab"))
       .on("click", (event, d) => {
         setUserActions((prev) => ({ ...prev, clicked: true }));
+        
+        // 展開・収納アニメーション中（ANIMATION_DURATION）は、クリックした親ノードの座標を固定してズレを防ぐ
+        d.fx = d.x;
+        d.fy = d.y;
+        setTimeout(() => {
+          // ドラッグ中でなければ固定を解除
+          d.fx = null;
+          d.fy = null;
+        }, ANIMATION_DURATION);
+
         if (d.data.url) {
           window.open(d.data.url, "_blank");
           event.stopPropagation();
@@ -547,8 +592,31 @@ export const WordCloud = ({ data }: WordCloudProps) => {
         }
       });
 
-    // 1. 各ノードのsuperellipseクリップパスを定義 (シャドウにクリッピングがかからないよう別要素)
-    node
+    nodeEnter
+      .transition()
+      .duration(ANIMATION_DURATION)
+      .tween("enterProgress", function (d: any) {
+        return function (t) {
+          d._enterProgress = t;
+        };
+      });
+
+    // --- コンテンツ用グループ (scaleやopacityアニメーションをかける用) ---
+    const nodeContentEnter = nodeEnter
+      .append("g")
+      .attr("class", "node-content")
+      .attr("transform", "scale(0.1)")
+      .style("opacity", 0);
+
+    nodeContentEnter
+      .transition()
+      .duration(ANIMATION_DURATION)
+      .ease(d3.easeCubicOut)
+      .attr("transform", "scale(1)")
+      .style("opacity", 1);
+
+    // 1. 各ノードのsuperellipseクリップパスを定義
+    nodeContentEnter
       .append("clipPath")
       .attr("id", (d) => `clip-${getSafeSvgId(d.id)}`)
       .append("path")
@@ -558,8 +626,8 @@ export const WordCloud = ({ data }: WordCloudProps) => {
         return getSuperellipsePath(rx, ry);
       });
 
-    // 2. メインのsuperellipseを描画 (影はこの要素自体に付与してクリッピングの影響を受けないようにする)
-    node
+    // 2. メインのsuperellipseを描画
+    nodeContentEnter
       .append("path")
       .attr("d", (d) => {
         const rx = getNodeRadius(d.name, d.depth);
@@ -583,12 +651,11 @@ export const WordCloud = ({ data }: WordCloudProps) => {
       });
 
     // 3. クリッピングされた反射光グループを追加
-    const shineGroup = node
+    const shineGroupEnter = nodeContentEnter
       .append("g")
       .attr("clip-path", (d) => `url(#clip-${getSafeSvgId(d.id)})`);
 
-    // その中に反射光の矩形を配置し、左上から右下へアニメーションさせる
-    shineGroup
+    shineGroupEnter
       .append("rect")
       .attr("x", (d) => -getNodeRadius(d.name, d.depth) * 2)
       .attr("y", (d) => -getNodeRy(d.depth) * 2)
@@ -601,13 +668,12 @@ export const WordCloud = ({ data }: WordCloudProps) => {
         return isPulse ? "animate-shine" : "hidden-shine";
       });
 
-    node
+    // 4. テキストを描画
+    nodeContentEnter
       .append("text")
       .attr("text-anchor", "middle")
       .attr("dominant-baseline", "middle")
-      .attr("fill", (d) => {
-        return d.data.url ? "#4d91daff" : "#555";
-      })
+      .attr("fill", (d) => (d.data.url ? "#4d91daff" : "#555"))
       .style("font-size", (d) => {
         const baseSize = 22;
         let depthReduction: number;
@@ -634,31 +700,130 @@ export const WordCloud = ({ data }: WordCloudProps) => {
       .text((d) => d.name)
       .attr("pointer-events", "none");
 
-    simulation.on("tick", () => {
-      link
-        .attr("x1", (d) => {
-          const s = d.source as SimulationNode;
-          return s.x ?? 0;
-        })
-        .attr("y1", (d) => {
-          const s = d.source as SimulationNode;
-          return s.y ?? 0;
-        })
-        .attr("x2", (d) => {
-          const t = d.target as SimulationNode;
-          return t.x ?? 0;
-        })
-        .attr("y2", (d) => {
-          const t = d.target as SimulationNode;
-          return t.y ?? 0;
-        });
-
-      node.attr("transform", (d) => `translate(${d.x ?? 0},${d.y ?? 0})`);
+    // --- Update (既存ノードの状態更新) ---
+    nodeSelection.select("path.node-path").attr("class", (d) => {
+      const isPulse = hasChildrenSet.has(d.id) && !expandedNodeIds.has(d.id);
+      return `node-path ${isPulse ? "animate-reflective-pulse" : ""}`;
+    });
+    nodeSelection.select("rect").attr("class", (d) => {
+      const isPulse = hasChildrenSet.has(d.id) && !expandedNodeIds.has(d.id);
+      return isPulse ? "animate-shine" : "hidden-shine";
     });
 
-    const alphaToUse = nodes.some((n) => n.x === undefined || n.x === null)
-      ? 1
-      : 0.1;
+    // --- Exit (収納時アニメーション) ---
+    const nodeExit = nodeSelection.exit();
+    nodeExit.each(function (d: any) {
+      d._exitProgress = 0; // 収納アニメーション用進捗
+      const el = d3.select(this);
+
+      el.transition()
+        .duration(ANIMATION_DURATION)
+        .ease(d3.easeCubicInOut)
+        .tween("exitProgress", function () {
+          return function (t) {
+            d._exitProgress = t;
+          };
+        })
+        .on("end", function () {
+          el.remove();
+        });
+
+      el.select(".node-content")
+        .transition()
+        .duration(ANIMATION_DURATION)
+        .ease(d3.easeCubicInOut)
+        .attr("transform", "scale(0.1)")
+        .style("opacity", 0);
+    });
+
+    // マージして最終的な selection にする
+    const node = nodeSelection.merge(nodeEnter);
+
+    // 子ノードが奥のレイヤーになるように、depthの降順でソート (DOM内の順序を並べ替える)
+    node.sort((a, b) => b.depth - a.depth);
+
+    // --- 物理シミュレーション (座標更新の完全制御) ---
+    simulation.on("tick", () => {
+      const posMap = new Map<string, { x: number; y: number }>();
+      const simNodesMap = new Map<string, any>();
+      simulation.nodes().forEach((n) => simNodesMap.set(n.id, n));
+
+      // 1. Enter と Update のノード座標計算
+      node.each(function (d: any) {
+        let targetX = d.x ?? 0;
+        let targetY = d.y ?? 0;
+        
+        // シミュレーション対象なら最新の座標を取得
+        const sn = simNodesMap.get(d.id);
+        if (sn) {
+          targetX = sn.x;
+          targetY = sn.y;
+        }
+
+        let renderX = targetX;
+        let renderY = targetY;
+
+        const pn = simNodesMap.get(d.parentId);
+        // Enter時: d._enterProgress が 0 なら親の位置、1 なら自分の位置へ飛び出す
+        if (d._enterProgress !== undefined && d._enterProgress < 1 && pn) {
+          renderX = pn.x + (targetX - pn.x) * d._enterProgress;
+          renderY = pn.y + (targetY - pn.y) * d._enterProgress;
+        }
+
+        posMap.set(d.id, { x: renderX, y: renderY });
+        d3.select(this).attr("transform", `translate(${renderX},${renderY})`);
+      });
+
+      // 2. Exit 中のノード座標計算
+      nodeExit.each(function (d: any) {
+        const startX = d.x ?? 0;
+        const startY = d.y ?? 0;
+        let renderX = startX;
+        let renderY = startY;
+
+        // 常に最新の親の座標を追いかけて吸い込まれる
+        const pn = simNodesMap.get(d.parentId);
+        if (d._exitProgress !== undefined && pn) {
+          renderX = startX + (pn.x - startX) * d._exitProgress;
+          renderY = startY + (pn.y - startY) * d._exitProgress;
+        }
+
+        posMap.set(d.id, { x: renderX, y: renderY });
+        d3.select(this).attr("transform", `translate(${renderX},${renderY})`);
+      });
+
+      // 3. Link (Update, Enter) の描画（全ノードの計算済み座標を参照）
+      link
+        .attr("x1", (d: any) => posMap.get(typeof d.source === "object" ? d.source.id : d.source)?.x ?? 0)
+        .attr("y1", (d: any) => posMap.get(typeof d.source === "object" ? d.source.id : d.source)?.y ?? 0)
+        .attr("x2", (d: any) => posMap.get(typeof d.target === "object" ? d.target.id : d.target)?.x ?? 0)
+        .attr("y2", (d: any) => posMap.get(typeof d.target === "object" ? d.target.id : d.target)?.y ?? 0);
+
+      // 4. Link (Exit) の描画 (親と一緒に縮みながら消える)
+      linkExit
+        .attr("x1", (d: any) => posMap.get(typeof d.source === "object" ? d.source.id : d.source)?.x ?? 0)
+        .attr("y1", (d: any) => posMap.get(typeof d.source === "object" ? d.source.id : d.source)?.y ?? 0)
+        .attr("x2", (d: any) => posMap.get(typeof d.target === "object" ? d.target.id : d.target)?.x ?? 0)
+        .attr("y2", (d: any) => posMap.get(typeof d.target === "object" ? d.target.id : d.target)?.y ?? 0);
+    });
+
+    // --- 斥力の急な変化を防ぐための alpha 調節 ---
+    // 現在の nodes.length と DOM上の .node の数を比較する
+    const previousNodeCount = g.selectAll(".node").size();
+    const currentNodeCount = nodes.length;
+
+    let alphaToUse = 0.1;
+    if (currentNodeCount < previousNodeCount) {
+      alphaToUse = 0.03; // 減ったときは静かに再配置（斥力の急激な爆発を防ぐ）
+    } else if (currentNodeCount > previousNodeCount) {
+      alphaToUse = 0.25; // 増えたときは弾けるように配置
+    }
+
+    // 初回ロード時
+    if (nodes.some((n) => n.x === undefined || n.x === null)) {
+      alphaToUse = 1;
+    }
+
     simulation.alpha(alphaToUse).restart();
   }, [nodes, links, expandedNodeIds]);
 
