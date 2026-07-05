@@ -15,7 +15,7 @@ export const defineSvgGradients = (
   const uniqueThemeColors = Array.from(
     new Set(data.map((d) => d.themeColor).filter(Boolean)),
   ) as string[];
-  
+
   uniqueThemeColors.forEach((color) => {
     const gradientId = `themeGradient-${color.replace(/[^\w]/g, "")}`;
     defs.select(`#${gradientId}`).remove();
@@ -90,7 +90,7 @@ export const defineSvgGradients = (
 
   /*
   位置 (%)         0% ------- 25% ------ 50% ------ 75% ------ 100%
-  不透明度          0 (透明)    0 (透明)   0.4 (白)    0 (透明)    0 (透明)
+  不透明度          0 (透明)    0 (透明)   0.8 (白)    0 (透明)    0 (透明)
                                             [光の芯]
   見た目イメージ    [透明]  --->  [透明] -> [光の線] -> [透明]  ---> [透明]
   */
@@ -111,7 +111,7 @@ export const defineSvgGradients = (
     .append("stop")
     .attr("offset", "50%")
     .attr("stop-color", "#ffffff")
-    .attr("stop-opacity", 0.4);
+    .attr("stop-opacity", 0.8);
 
   shineGradient
     .append("stop")
