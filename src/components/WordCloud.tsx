@@ -10,18 +10,10 @@ import {
 import { defineSvgGradients } from "../utils/svgDefs";
 import { generateNodesAndLinks as buildGraphData, getHasChildrenSet } from "../utils/graphUtils";
 
+import { useInteractionHints } from "../hooks/useInteractionHints";
+
 interface WordCloudProps {
   data: InterestNode[];
-}
-
-type HintKey = "clicked" | "move_field" | "scrolled";
-
-interface UserActions {
-  clicked: boolean;
-  dragged: boolean;
-  keyed: boolean;
-  scrolled: boolean;
-  move_field: boolean;
 }
 
 export const WordCloud = ({ data }: WordCloudProps) => {
@@ -32,30 +24,7 @@ export const WordCloud = ({ data }: WordCloudProps) => {
     new Set(),
   );
 
-  // 操作ヒントのためのステート
-  const HINT_INITIAL_DELAY = 5000; // 最初のヒントが表示されるまでの時間
-  const HINT_DISPLAY_DURATION = 7000; // 各ヒントが表示される時間
-
-  const hintMessagesMap: Record<HintKey, string> = {
-    clicked: "四角形をクリックして展開",
-    move_field: "ドラッグでフィールドを移動",
-    scrolled: "スクロールでズーム",
-  };
-  const hintOrder: HintKey[] = ["clicked", "move_field", "scrolled"];
-
-  const [userActions, setUserActions] = useState<UserActions>({
-    clicked: false,
-    dragged: false,
-    keyed: false,
-    scrolled: false,
-    move_field: false,
-  });
-  const [currentHintMessage, setCurrentHintMessage] = useState<string | null>(
-    null,
-  );
-  const [isFadingOut, setIsFadingOut] = useState(false); // フェードアウト中かどうかのフラグ
-  const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hintSequenceIndexRef = useRef(0);
+  const { currentHintMessage, isFadingOut, registerAction } = useInteractionHints();
 
   // D3シミュレーションの参照を保持
   const simulationRef = useRef<d3.Simulation<
@@ -120,7 +89,7 @@ export const WordCloud = ({ data }: WordCloudProps) => {
         currentTransformRef.current = event.transform;
         // ホイールスクロールアクションを追跡
         if (event.sourceEvent && event.sourceEvent.type === "wheel") {
-          setUserActions((prev) => ({ ...prev, scrolled: true }));
+          registerAction({ scrolled: true });
         }
       });
     svg.call(zoomRef.current).on("dblclick.zoom", null);
@@ -261,11 +230,7 @@ export const WordCloud = ({ data }: WordCloudProps) => {
         if (!event.active) simulation.alphaTarget(0.3).restart();
         d.fx = d.x;
         d.fy = d.y;
-        setUserActions((prev) => ({
-          ...prev,
-          dragged: true,
-          move_field: true,
-        }));
+        registerAction({ dragged: true, move_field: true });
       })
       .on("drag", function (event, d) {
         d.fx = event.x;
@@ -289,7 +254,7 @@ export const WordCloud = ({ data }: WordCloudProps) => {
       .call(dragBehavior)
       .style("cursor", (d) => (d.data.url ? "pointer" : "grab"))
       .on("click", (event, d) => {
-        setUserActions((prev) => ({ ...prev, clicked: true }));
+        registerAction({ clicked: true });
 
         // 展開・収納アニメーション中（ANIMATION_DURATION）は、クリックした親ノードの座標を固定してズレを防ぐ
         d.fx = d.x;
@@ -577,7 +542,7 @@ export const WordCloud = ({ data }: WordCloudProps) => {
   // キーボードイベントハンドラ
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      setUserActions((prev) => ({ ...prev, keyed: true, move_field: true }));
+      registerAction({ keyed: true, move_field: true });
       let dx = 0;
       let dy = 0;
       const moveAmount = 50;
@@ -620,82 +585,6 @@ export const WordCloud = ({ data }: WordCloudProps) => {
     };
   }, []);
 
-  // ヒントメッセージのロジック
-  useEffect(() => {
-    const showNextHintInSequence = () => {
-      if (hintTimerRef.current) {
-        clearTimeout(hintTimerRef.current);
-        hintTimerRef.current = null;
-      }
-
-      let nextHintKey: HintKey | null = null;
-      const startIndex = hintSequenceIndexRef.current;
-
-      for (let i = 0; i < hintOrder.length; i++) {
-        const checkIndex = (startIndex + i) % hintOrder.length;
-        const key = hintOrder[checkIndex];
-        if (key === "move_field") {
-          if (!userActions.move_field) {
-            nextHintKey = key;
-            hintSequenceIndexRef.current = checkIndex;
-            break;
-          }
-        } else {
-          if (!userActions[key]) {
-            nextHintKey = key;
-            hintSequenceIndexRef.current = checkIndex;
-            break;
-          }
-        }
-      }
-
-      if (nextHintKey) {
-        setCurrentHintMessage(hintMessagesMap[nextHintKey]);
-        setIsFadingOut(false);
-
-        hintTimerRef.current = setTimeout(() => {
-          const actionPerformed =
-            nextHintKey === "move_field"
-              ? userActions.move_field
-              : userActions[nextHintKey!];
-          if (!actionPerformed) {
-            setIsFadingOut(true);
-            setTimeout(() => {
-              hintSequenceIndexRef.current =
-                (hintSequenceIndexRef.current + 1) % hintOrder.length;
-              showNextHintInSequence();
-            }, 500);
-          } else {
-            setCurrentHintMessage(null);
-            setIsFadingOut(false);
-            showNextHintInSequence();
-          }
-        }, HINT_DISPLAY_DURATION);
-      } else {
-        setCurrentHintMessage(null);
-        setIsFadingOut(false);
-        hintSequenceIndexRef.current = 0;
-      }
-    };
-
-    if (
-      Object.values(userActions).every((action) => !action) &&
-      currentHintMessage === null
-    ) {
-      hintTimerRef.current = setTimeout(
-        showNextHintInSequence,
-        HINT_INITIAL_DELAY,
-      );
-    } else if (Object.values(userActions).some((action) => action)) {
-      showNextHintInSequence();
-    }
-
-    return () => {
-      if (hintTimerRef.current) {
-        clearTimeout(hintTimerRef.current);
-      }
-    };
-  }, [userActions]);
 
   return (
     <div className="app-container">
