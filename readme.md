@@ -60,7 +60,7 @@
 
   - **移動/ズーム**
 
-    空白部分をドラッグするか、キーボード（WASD / 矢印キー）でフィールドを移動できます。また、マウスホイールでズームイン・アウトが可能です（誤操作を防ぐため、ダブルクリックによる自動ズームは無効化されています）。
+    空白部分をドラッグするか、キーボード（WASD / 矢印キー）でフィールドを移動できます。また、マウスホイールでズームイン・アウトが可能です。
 
 ## 技術スタック
 
@@ -68,11 +68,11 @@
   Vite
 - **パッケージマネージャー**
   pnpm
-- **フロントエンド言語**
+- **フロントエンド**
   TypeScript
 - **UIライブラリ**
   React (状態管理のために使用)
-- **可視化ライブラリ**
+- **可視化**
   D3.js
 - **スタイリング**
   Vanilla CSS
@@ -82,26 +82,26 @@
 ## ディレクトリ構成
 
 ```text
-├── index.html            # アプリケーションのエントリーポイントとなるHTML
+├── index.html
 ├── .prettierrc           # データファイル専用のフォーマットルール設定ファイル
 ├── .prettierignore       # interestData.ts 以外のファイルを自動フォーマットから除外
-├── package.json          # 依存関係、ビルドスクリプトの定義
+├── package.json
 ├── src/
-│   ├── main.tsx          # Reactアプリのレンダリングを行うエントリーポイント
-│   ├── App.tsx           # メインのレイアウトコンポーネント
-│   ├── types.ts          # TypeScript型定義（InterestNode、SimulationNodeなど）
+│   ├── main.tsx
+│   ├── App.tsx
+│   ├── types.ts
 │   ├── components/
 │   │   └── WordCloud.tsx # D3.jsシミュレーションの初期化、データ結合(Enter/Update/Exit)、描画、UIイベントハンドラ
 │   ├── data/
-│   │   ├── interestData.ts         # 実際のデータ（.gitignoreによりGit管理外）
-│   │   ├── interestData.example.ts # 共有・公開・テスト用のダミーデータテンプレート
+│   │   ├── interestData.ts         # 実際のデータ（Git管理外）
+│   │   ├── interestData.example.ts # ダミーデータテンプレート
 │   │   └── initialData.ts          # データ前処理（BFSによるルートカラー・深さ・主要親の伝播）
 │   ├── utils/
 │   │   ├── graphUtils.ts   # 展開状態から表示対象ノード/リンクを算出するグラフアルゴリズム
 │   │   ├── nodeUtils.ts    # ノードサイズ計算やsuperellipseパス生成などの純粋関数
 │   │   └── svgDefs.ts      # 影・グラデーション・反射光などSVG <defs> の定義ロジック
 │   └── styles/
-│       └── index.css       # アプリ全体のスタイルシート（反射光キーフレーム、鼓動アニメーション、asciiアート仕様図を含む）
+│       └── index.css
 ```
 
 ## コマンド
