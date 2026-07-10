@@ -7,6 +7,20 @@ body {
   overflow: hidden;
 }
 
+:root {
+  /* 輝きアニメーションのパラメータ設定 */
+  --shine-duration: 4s; /* 輝きが1周走る全体の周期（待機時間含む） */
+  --shine-active-duration: 2.5s; /* 実際に光が走っている時間（秒） */
+  --shine-color: #ffffff; /* 反射光の色 */
+  --shine-max-opacity: 0.7; /* 光の芯の最大不透明度 (0.0〜1.0) */
+
+  /* 輝きのグラデーションの向き (角度) */
+  --shine-angle-x1: 0%;
+  --shine-angle-y1: 0%;
+  --shine-angle-x2: 100%;
+  --shine-angle-y2: 100%;
+}
+
 /* Main Container (Tailwind: relative flex flex-col items-center justify-center h-screen w-screen bg-gray-100 overflow-hidden) */
 .app-container {
   position: relative;
@@ -168,7 +182,7 @@ body {
 }
 
 .animate-shine {
-  animation: shine-sweep 4.2s infinite ease-in-out;
+  animation: shine-sweep var(--shine-duration) infinite linear;
   transform-origin: center;
 }
 

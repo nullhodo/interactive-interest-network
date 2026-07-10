@@ -1,6 +1,19 @@
 import * as d3 from "d3";
 import type { InterestNode } from "../types";
 
+/**
+ * CSS変数（カスタムプロパティ）を安全に読み込むヘルパー関数
+ */
+const getCssVariable = (name: string, defaultValue: string): string => {
+  if (typeof window !== "undefined") {
+    const value = getComputedStyle(document.documentElement)
+      .getPropertyValue(name)
+      .trim();
+    return value || defaultValue;
+  }
+  return defaultValue;
+};
+
 export const defineSvgGradients = (
   svg: d3.Selection<SVGSVGElement, unknown, null, undefined>,
   data: InterestNode[],
@@ -80,48 +93,57 @@ export const defineSvgGradients = (
   // 反射光用のグラデーションを定義
   const shineGradientId = "shineGradient";
   defs.select(`#${shineGradientId}`).remove(); // 再描画時に古い定義を削除
+
+  // CSS変数から輝き設定を動的に取得
+  const x1 = getCssVariable("--shine-angle-x1", "0%");
+  const y1 = getCssVariable("--shine-angle-y1", "0%");
+  const x2 = getCssVariable("--shine-angle-x2", "100%");
+  const y2 = getCssVariable("--shine-angle-y2", "100%");
+  const shineColor = getCssVariable("--shine-color", "#ffffff");
+  const maxOpacity = Number.parseFloat(
+    getCssVariable("--shine-max-opacity", "0.8"),
+  );
+
   const shineGradient = defs
     .append("linearGradient")
     .attr("id", shineGradientId)
-    .attr("x1", "0%")
-    .attr("y1", "0%")
-    .attr("x2", "100%")
-    .attr("y2", "100%");
+    .attr("x1", x1)
+    .attr("y1", y1)
+    .attr("x2", x2)
+    .attr("y2", y2);
 
   /*
   位置 (%)         0% ------- 25% ------ 50% ------ 75% ------ 100%
-  不透明度          0 (透明)    0 (透明)   0.8 (白)    0 (透明)    0 (透明)
-                                            [光の芯]
-  見た目イメージ    [透明]  --->  [透明] -> [光の線] -> [透明]  ---> [透明]
+  不透明度          0 (透明)    0 (透明)   maxOpacity  0 (透明)    0 (透明)
   */
 
   shineGradient
     .append("stop")
     .attr("offset", "0%")
-    .attr("stop-color", "#ffffff")
+    .attr("stop-color", shineColor)
     .attr("stop-opacity", 0);
 
   shineGradient
     .append("stop")
     .attr("offset", "25%")
-    .attr("stop-color", "#ffffff")
+    .attr("stop-color", shineColor)
     .attr("stop-opacity", 0);
 
   shineGradient
     .append("stop")
     .attr("offset", "50%")
-    .attr("stop-color", "#ffffff")
-    .attr("stop-opacity", 0.8);
+    .attr("stop-color", shineColor)
+    .attr("stop-opacity", maxOpacity);
 
   shineGradient
     .append("stop")
     .attr("offset", "75%")
-    .attr("stop-color", "#ffffff")
+    .attr("stop-color", shineColor)
     .attr("stop-opacity", 0);
 
   shineGradient
     .append("stop")
     .attr("offset", "100%")
-    .attr("stop-color", "#ffffff")
+    .attr("stop-color", shineColor)
     .attr("stop-opacity", 0);
 };

@@ -29,6 +29,102 @@ export const WordCloud = ({ data }: WordCloudProps) => {
   const { currentHintMessage, isFadingOut, registerAction } =
     useInteractionHints();
 
+  const [dynamicShineStyle, setDynamicShineStyle] = useState<string>("");
+
+  // 輝き（Shine）アニメーションの動的キーフレーム計算 (CSSの動的変更を検知・即時反映する)
+  useEffect(() => {
+    const parseSeconds = (val: string, defaultSec: number): number => {
+      const num = Number.parseFloat(val);
+      if (Number.isNaN(num)) return defaultSec;
+      if (val.includes("ms")) return num / 1000;
+      return num;
+    };
+
+    const getCssVar = (name: string, def: string) => {
+      if (typeof window !== "undefined") {
+        return (
+          getComputedStyle(document.documentElement)
+            .getPropertyValue(name)
+            .trim() || def
+        );
+      }
+      return def;
+    };
+
+    let lastDurationStr = "";
+    let lastActiveDurationStr = "";
+
+    const updateShineKeyframes = () => {
+      const durationStr = getCssVar("--shine-duration", "4.2s");
+      const activeDurationStr = getCssVar("--shine-active-duration", "1.5s");
+
+      // 変数値が同じなら再構築をスキップしてレンダリングコストを下げる
+      if (
+        durationStr === lastDurationStr &&
+        activeDurationStr === lastActiveDurationStr
+      ) {
+        return;
+      }
+      lastDurationStr = durationStr;
+      lastActiveDurationStr = activeDurationStr;
+
+      const duration = parseSeconds(durationStr, 4.2);
+      const activeDuration = parseSeconds(activeDurationStr, 1.5);
+
+      // 全体時間に占めるアクティブ時間の割合
+      const activePercent = Math.min(
+        100,
+        Math.max(0, (activeDuration / duration) * 100),
+      );
+
+      // 各キーフレーム割合をアクティブ時間比率でスケーリング
+      const kFadeIn = (activePercent * 0.15).toFixed(2);
+      const kFadeOut = (activePercent * 0.85).toFixed(2);
+      const kEnd = activePercent.toFixed(2);
+
+      // コンソールデバッグ用 (秒数パース確認)
+      console.log("Shine sweep configured:", {
+        durationStr,
+        activeDurationStr,
+        parsedDuration: duration,
+        parsedActive: activeDuration,
+        activePercent: `${activePercent.toFixed(1)}%`,
+      });
+
+      const css = `
+@keyframes shine-sweep {
+  0% {
+    transform: translate(-35%, -35%);
+    opacity: 0;
+  }
+  ${kFadeIn}% {
+    opacity: 1;
+  }
+  ${kFadeOut}% {
+    opacity: 1;
+  }
+  ${kEnd}% {
+    transform: translate(35%, 35%);
+    opacity: 0;
+  }
+  100% {
+    transform: translate(35%, 35%);
+    opacity: 0;
+  }
+}
+`;
+      setDynamicShineStyle(css);
+    };
+
+    // 初回ロード
+    updateShineKeyframes();
+
+    // HMR(ホットリロード)やエディタの保存に追従するため、500ms周期でCSS変数変更を監視
+    const intervalId = setInterval(updateShineKeyframes, 500);
+
+    return () => clearInterval(intervalId);
+  }, []);
+
   // D3シミュレーションの参照を保持
   const simulationRef = useRef<d3.Simulation<
     SimulationNode,
@@ -636,6 +732,7 @@ export const WordCloud = ({ data }: WordCloudProps) => {
 
   return (
     <div className="app-container">
+      <style>{dynamicShineStyle}</style>
       <div className="svg-container">
         <svg
           ref={svgRef}
