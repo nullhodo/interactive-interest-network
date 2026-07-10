@@ -1,4 +1,4 @@
-import { InterestNode } from "../types";
+import type { InterestNode } from "../types";
 
 // サンプルデータ: 趣味や興味のつながりを表す複雑なネットワーク構成例
 // 実際の自分のデータを使用する場合は、このファイルをコピーして `interestData.ts` を作成してください。
@@ -35,10 +35,14 @@ export const baseCategories: InterestNode[] = [
   { name: "音楽", parents: ["カルチャー"] },
   { name: "電子音楽", parents: ["音楽", "テクノロジー"] },
   { name: "シンセサイザー", parents: ["電子音楽", "ハードウェア"] },
-  
+
   // --- さらに深い階層・改行・複数親のテスト ---
-  { name: "モジュラー\nシンセ", parents: ["シンセサイザー"], themeColor: "orange" },
+  {
+    name: "モジュラー\nシンセ",
+    parents: ["シンセサイザー"],
+    themeColor: "orange",
+  },
   { name: "生成AI", parents: ["AI・機械学習"] },
   { name: "LLM", parents: ["生成AI"] },
-  { name: "プロンプト\nエンジニアリング", parents: ["LLM", "カルチャー"] }
+  { name: "プロンプト\nエンジニアリング", parents: ["LLM", "カルチャー"] },
 ];

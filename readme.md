@@ -76,16 +76,15 @@
   D3.js
 - **スタイリング**
   Vanilla CSS
-- **コードフォーマッタ**
-  Prettier (データファイル専用)
+- **コードフォーマッタ / リンター**
+  Biome (高速なプロジェクト静的解析、およびデータファイルの自動整形)
 
 ## ディレクトリ構成
 
 ```text
 ├── index.html
-├── .prettierrc           # データファイル専用のフォーマットルール設定ファイル
-├── .prettierignore       # interestData.ts 以外のファイルを自動フォーマットから除外
-├── package.json
+├── biome.json            # BiomeのLinter / Formatterの設定・フォーマットルール
+├── package.json          # 依存関係、ビルドスクリプトの定義
 ├── src/
 │   ├── main.tsx
 │   ├── App.tsx
@@ -110,5 +109,6 @@
 | :------------- | :----------------------------------------- |
 | `pnpm install` | 依存関係のインストール                     |
 | `pnpm dev`     | 開発サーバーの起動                         |
-| `pnpm format`  | `interestData.ts` のPrettierによる自動整形 |
+| `pnpm format`  | `interestData.ts` のBiomeによる自動整形    |
+| `pnpm lint`    | プロジェクト全体のBiomeによるLinterチェックと安全な自動修正 |
 | `pnpm build`   | 本番用ビルドの生成                         |

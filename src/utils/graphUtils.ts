@@ -1,4 +1,4 @@
-import { InterestNode, SimulationNode, SimulationLink } from "../types";
+import type { InterestNode, SimulationLink, SimulationNode } from "../types";
 
 /**
  * データを元に、現在表示すべきノードとリンクを計算する関数
@@ -35,9 +35,11 @@ export const generateNodesAndLinks = (
   const queue: { name: string; parent: string | null; depth: number }[] = [];
 
   // ルートノードをすべて初期キューに登録
-  data.filter((d) => d.isRoot).forEach((root) => {
-    queue.push({ name: root.name, parent: null, depth: 0 });
-  });
+  data
+    .filter((d) => d.isRoot)
+    .forEach((root) => {
+      queue.push({ name: root.name, parent: null, depth: 0 });
+    });
 
   while (queue.length > 0) {
     const { name, parent, depth } = queue.shift()!;
@@ -86,8 +88,14 @@ export const generateNodesAndLinks = (
       newNode.fy = oldSimulationNode.fy;
     } else {
       // 親ノードがすでにシミュレーション上に存在する場合は、親ノードの位置を初期位置とする
-      const parentSimNode = parentId ? currentSimulationNodesMap.get(parentId) : null;
-      if (parentSimNode && parentSimNode.x !== undefined && parentSimNode.y !== undefined) {
+      const parentSimNode = parentId
+        ? currentSimulationNodesMap.get(parentId)
+        : null;
+      if (
+        parentSimNode &&
+        parentSimNode.x !== undefined &&
+        parentSimNode.y !== undefined
+      ) {
         // 子ノードが重なって巨大な斥力が発生するのを防ぐため、親の周囲に少し散らして配置する
         const angle = Math.random() * Math.PI * 2;
         const radius = 20 + Math.random() * 20; // 20px ~ 40px の範囲
@@ -124,7 +132,9 @@ export const getHasChildrenSet = (data: InterestNode[]): Set<string> => {
   const hasChildrenSet = new Set<string>();
   data.forEach((node) => {
     if (node.parents) {
-      node.parents.forEach((p) => hasChildrenSet.add(p));
+      node.parents.forEach((p) => {
+        hasChildrenSet.add(p);
+      });
     }
   });
   return hasChildrenSet;

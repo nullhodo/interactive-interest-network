@@ -1,16 +1,18 @@
-import { useRef, useEffect, useState, useCallback } from "react";
 import * as d3 from "d3";
-import { SimulationNode, SimulationLink, InterestNode } from "../types";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useInteractionHints } from "../hooks/useInteractionHints";
+import type { InterestNode, SimulationLink, SimulationNode } from "../types";
+import {
+  generateNodesAndLinks as buildGraphData,
+  getHasChildrenSet,
+} from "../utils/graphUtils";
 import {
   getNodeRadius,
   getNodeRy,
-  getSuperellipsePath,
   getSafeSvgId,
+  getSuperellipsePath,
 } from "../utils/nodeUtils";
 import { defineSvgGradients } from "../utils/svgDefs";
-import { generateNodesAndLinks as buildGraphData, getHasChildrenSet } from "../utils/graphUtils";
-
-import { useInteractionHints } from "../hooks/useInteractionHints";
 
 interface WordCloudProps {
   data: InterestNode[];
@@ -24,7 +26,8 @@ export const WordCloud = ({ data }: WordCloudProps) => {
     new Set(),
   );
 
-  const { currentHintMessage, isFadingOut, registerAction } = useInteractionHints();
+  const { currentHintMessage, isFadingOut, registerAction } =
+    useInteractionHints();
 
   // D3シミュレーションの参照を保持
   const simulationRef = useRef<d3.Simulation<
@@ -74,7 +77,13 @@ export const WordCloud = ({ data }: WordCloudProps) => {
         "collide",
         d3
           .forceCollide<SimulationNode>()
-          .radius((d) => Math.max(getNodeRadius(d.name, d.depth), getNodeRy(d.name, d.depth)) + 30)
+          .radius(
+            (d) =>
+              Math.max(
+                getNodeRadius(d.name, d.depth),
+                getNodeRy(d.name, d.depth),
+              ) + 30,
+          )
           .iterations(3),
       )
       .force("x", d3.forceX(width / 2).strength(0.3))
@@ -126,7 +135,7 @@ export const WordCloud = ({ data }: WordCloudProps) => {
         d3.select(svgElement).selectAll("*").remove();
       }
     };
-  }, [data]); // Run only on mount and if data ref changes
+  }, [data, registerAction]); // Run only on mount and if data ref changes
 
   // 2. Data Generation (useCallback to prevent re-creation on every render)
   const generateNodesAndLinks = useCallback(() => {
@@ -147,7 +156,7 @@ export const WordCloud = ({ data }: WordCloudProps) => {
       expandedNodeIds,
       currentSimulationNodesMap,
       currentWidth,
-      currentHeight
+      currentHeight,
     );
   }, [data, expandedNodeIds]);
 
@@ -159,7 +168,7 @@ export const WordCloud = ({ data }: WordCloudProps) => {
     const { newNodes, newLinks } = generateNodesAndLinks();
     setNodes(newNodes);
     setLinks(newLinks);
-  }, [expandedNodeIds, generateNodesAndLinks]);
+  }, [generateNodesAndLinks]);
 
   // 4. D3 Rendering & Simulation Tick (runs when nodes/links state changes)
   useEffect(() => {
@@ -208,7 +217,9 @@ export const WordCloud = ({ data }: WordCloudProps) => {
       .append("line")
       .attr("stroke", "#999")
       .attr("stroke-opacity", 0)
-      .call((e) => e.transition().duration(ANIMATION_DURATION).attr("stroke-opacity", 0.6));
+      .call((e) =>
+        e.transition().duration(ANIMATION_DURATION).attr("stroke-opacity", 0.6),
+      );
 
     const linkExit = linkSelection.exit();
     linkExit
@@ -226,17 +237,17 @@ export const WordCloud = ({ data }: WordCloudProps) => {
 
     const dragBehavior = d3
       .drag<SVGGElement, SimulationNode>()
-      .on("start", function (event, d) {
+      .on("start", (event, d) => {
         if (!event.active) simulation.alphaTarget(0.3).restart();
         d.fx = d.x;
         d.fy = d.y;
         registerAction({ dragged: true, move_field: true });
       })
-      .on("drag", function (event, d) {
+      .on("drag", (event, d) => {
         d.fx = event.x;
         d.fy = event.y;
       })
-      .on("end", function (event, d) {
+      .on("end", (event, d) => {
         if (!event.active) simulation.alphaTarget(0);
         d.fx = null;
         d.fy = null;
@@ -247,7 +258,7 @@ export const WordCloud = ({ data }: WordCloudProps) => {
       .enter()
       .append("g")
       .attr("class", "node")
-      .each(function (d: any) {
+      .each((d: any) => {
         d._enterProgress = 0; // 出現アニメーション用進捗
       })
       .attr("transform", (d) => `translate(${d.x ?? 0},${d.y ?? 0})`)
@@ -259,7 +270,7 @@ export const WordCloud = ({ data }: WordCloudProps) => {
         // 展開・収納アニメーション中（ANIMATION_DURATION）は、クリックした親ノードの座標を固定してズレを防ぐ
         d.fx = d.x;
         d.fy = d.y;
-        
+
         const targetId = d.id;
         setTimeout(() => {
           // 再生成されたシミュレーション内の最新のノードを見つけて固定を解除する
@@ -293,10 +304,8 @@ export const WordCloud = ({ data }: WordCloudProps) => {
     nodeEnter
       .transition()
       .duration(ANIMATION_DURATION)
-      .tween("enterProgress", function (d: any) {
-        return function (t) {
-          d._enterProgress = t;
-        };
+      .tween("enterProgress", (d: any) => (t) => {
+        d._enterProgress = t;
       });
 
     // --- コンテンツ用グループ (scaleやopacityアニメーションをかける用) ---
@@ -431,12 +440,10 @@ export const WordCloud = ({ data }: WordCloudProps) => {
       el.transition()
         .duration(ANIMATION_DURATION)
         .ease(d3.easeCubicInOut)
-        .tween("exitProgress", function () {
-          return function (t) {
-            d._exitProgress = t;
-          };
+        .tween("exitProgress", () => (t) => {
+          d._exitProgress = t;
         })
-        .on("end", function () {
+        .on("end", () => {
           el.remove();
         });
 
@@ -458,7 +465,9 @@ export const WordCloud = ({ data }: WordCloudProps) => {
     simulation.on("tick", () => {
       const posMap = new Map<string, { x: number; y: number }>();
       const simNodesMap = new Map<string, any>();
-      simulation.nodes().forEach((n) => simNodesMap.set(n.id, n));
+      simulation.nodes().forEach((n) => {
+        simNodesMap.set(n.id, n);
+      });
 
       // 1. Enter と Update のノード座標計算
       node.each(function (d: any) {
@@ -506,17 +515,57 @@ export const WordCloud = ({ data }: WordCloudProps) => {
 
       // 3. Link (Update, Enter) の描画（全ノードの計算済み座標を参照）
       link
-        .attr("x1", (d: any) => posMap.get(typeof d.source === "object" ? d.source.id : d.source)?.x ?? 0)
-        .attr("y1", (d: any) => posMap.get(typeof d.source === "object" ? d.source.id : d.source)?.y ?? 0)
-        .attr("x2", (d: any) => posMap.get(typeof d.target === "object" ? d.target.id : d.target)?.x ?? 0)
-        .attr("y2", (d: any) => posMap.get(typeof d.target === "object" ? d.target.id : d.target)?.y ?? 0);
+        .attr(
+          "x1",
+          (d: any) =>
+            posMap.get(typeof d.source === "object" ? d.source.id : d.source)
+              ?.x ?? 0,
+        )
+        .attr(
+          "y1",
+          (d: any) =>
+            posMap.get(typeof d.source === "object" ? d.source.id : d.source)
+              ?.y ?? 0,
+        )
+        .attr(
+          "x2",
+          (d: any) =>
+            posMap.get(typeof d.target === "object" ? d.target.id : d.target)
+              ?.x ?? 0,
+        )
+        .attr(
+          "y2",
+          (d: any) =>
+            posMap.get(typeof d.target === "object" ? d.target.id : d.target)
+              ?.y ?? 0,
+        );
 
       // 4. Link (Exit) の描画 (親と一緒に縮みながら消える)
       linkExit
-        .attr("x1", (d: any) => posMap.get(typeof d.source === "object" ? d.source.id : d.source)?.x ?? 0)
-        .attr("y1", (d: any) => posMap.get(typeof d.source === "object" ? d.source.id : d.source)?.y ?? 0)
-        .attr("x2", (d: any) => posMap.get(typeof d.target === "object" ? d.target.id : d.target)?.x ?? 0)
-        .attr("y2", (d: any) => posMap.get(typeof d.target === "object" ? d.target.id : d.target)?.y ?? 0);
+        .attr(
+          "x1",
+          (d: any) =>
+            posMap.get(typeof d.source === "object" ? d.source.id : d.source)
+              ?.x ?? 0,
+        )
+        .attr(
+          "y1",
+          (d: any) =>
+            posMap.get(typeof d.source === "object" ? d.source.id : d.source)
+              ?.y ?? 0,
+        )
+        .attr(
+          "x2",
+          (d: any) =>
+            posMap.get(typeof d.target === "object" ? d.target.id : d.target)
+              ?.x ?? 0,
+        )
+        .attr(
+          "y2",
+          (d: any) =>
+            posMap.get(typeof d.target === "object" ? d.target.id : d.target)
+              ?.y ?? 0,
+        );
     });
 
     // --- 斥力の急な変化を防ぐための alpha 調節 ---
@@ -537,7 +586,7 @@ export const WordCloud = ({ data }: WordCloudProps) => {
     }
 
     simulation.alpha(alphaToUse).restart();
-  }, [nodes, links, expandedNodeIds]);
+  }, [nodes, links, expandedNodeIds, data, registerAction]);
 
   // キーボードイベントハンドラ
   useEffect(() => {
@@ -583,13 +632,17 @@ export const WordCloud = ({ data }: WordCloudProps) => {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, []);
-
+  }, [registerAction]);
 
   return (
     <div className="app-container">
       <div className="svg-container">
-        <svg ref={svgRef} className="network-svg"></svg>
+        <svg
+          ref={svgRef}
+          className="network-svg"
+          role="img"
+          aria-label="Interactive Interest Network"
+        ></svg>
       </div>
 
       {currentHintMessage && (

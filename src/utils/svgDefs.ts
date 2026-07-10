@@ -1,9 +1,9 @@
 import * as d3 from "d3";
-import { InterestNode } from "../types";
+import type { InterestNode } from "../types";
 
 export const defineSvgGradients = (
   svg: d3.Selection<SVGSVGElement, unknown, null, undefined>,
-  data: InterestNode[]
+  data: InterestNode[],
 ) => {
   // グラデーションの定義
   let defs = svg.select<SVGDefsElement>("defs");

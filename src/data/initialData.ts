@@ -1,4 +1,4 @@
-import { InterestNode } from "../types";
+import type { InterestNode } from "../types";
 import { baseCategories } from "./interestData";
 
 const calculateDynamicSaturation = (numElements: number): number => {

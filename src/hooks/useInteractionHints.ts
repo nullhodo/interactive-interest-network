@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type HintKey = "clicked" | "move_field" | "scrolled";
 
@@ -10,17 +10,17 @@ export interface UserActions {
   move_field: boolean;
 }
 
+const HINT_INITIAL_DELAY = 5000; // 最初のヒントが表示されるまでの時間
+const HINT_DISPLAY_DURATION = 7000; // 各ヒントが表示される時間
+
+const hintMessagesMap: Record<HintKey, string> = {
+  clicked: "輝いている石をクリックして展開",
+  move_field: "ドラッグでフィールドを移動",
+  scrolled: "スクロールでズーム",
+};
+const hintOrder: HintKey[] = ["clicked", "move_field", "scrolled"];
+
 export const useInteractionHints = () => {
-  const HINT_INITIAL_DELAY = 5000; // 最初のヒントが表示されるまでの時間
-  const HINT_DISPLAY_DURATION = 7000; // 各ヒントが表示される時間
-
-  const hintMessagesMap: Record<HintKey, string> = {
-    clicked: "四角形をクリックして展開",
-    move_field: "ドラッグでフィールドを移動",
-    scrolled: "スクロールでズーム",
-  };
-  const hintOrder: HintKey[] = ["clicked", "move_field", "scrolled"];
-
   const [userActions, setUserActions] = useState<UserActions>({
     clicked: false,
     dragged: false,
@@ -29,7 +29,9 @@ export const useInteractionHints = () => {
     move_field: false,
   });
 
-  const [currentHintMessage, setCurrentHintMessage] = useState<string | null>(null);
+  const [currentHintMessage, setCurrentHintMessage] = useState<string | null>(
+    null,
+  );
   const [isFadingOut, setIsFadingOut] = useState(false); // フェードアウト中かどうかのフラグ
   const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hintSequenceIndexRef = useRef(0);
@@ -113,7 +115,7 @@ export const useInteractionHints = () => {
         clearTimeout(hintTimerRef.current);
       }
     };
-  }, [userActions]); // userActions が変更されるたびにシーケンスを再評価
+  }, [userActions, currentHintMessage]); // userActions や currentHintMessage が変更されるたびにシーケンスを再評価
 
   return {
     currentHintMessage,

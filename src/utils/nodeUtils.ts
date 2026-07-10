@@ -23,7 +23,7 @@ export const getNodeRadius = (name: string, depth: number): number => {
 export const getNodeRy = (name: string, depth: number): number => {
   const lines = name.split("\n");
   const lineCount = lines.length;
-  
+
   const baseRy = 60;
   const extraHeightFactor = (lineCount - 1) * 15; // 複数行なら高さを増やす
   // 深くなるほどサイズを大幅に小さくする
@@ -57,8 +57,8 @@ export const getSuperellipsePath = (rx: number, ry: number, n = 3): string => {
     const t = (i * 2 * Math.PI) / steps;
     const cosT = Math.cos(t);
     const sinT = Math.sin(t);
-    const x = rx * Math.sign(cosT) * Math.pow(Math.abs(cosT), 2 / n);
-    const y = ry * Math.sign(sinT) * Math.pow(Math.abs(sinT), 2 / n);
+    const x = rx * Math.sign(cosT) * Math.abs(cosT) ** (2 / n);
+    const y = ry * Math.sign(sinT) * Math.abs(sinT) ** (2 / n);
     if (i === 0) {
       pathData += `M ${x} ${y}`;
     } else {
@@ -72,7 +72,5 @@ export const getSuperellipsePath = (rx: number, ry: number, n = 3): string => {
 // SVGのID属性などで使用できる安全な文字列を生成する関数（日本語・特殊文字対応）
 // 日本語名のノードでも光の反射のクリッピングが正しく動くようにするため
 export const getSafeSvgId = (str: string): string => {
-  return encodeURIComponent(str)
-    .replace(/%/g, "_")
-    .replace(/[^\w]/g, "_");
+  return encodeURIComponent(str).replace(/%/g, "_").replace(/[^\w]/g, "_");
 };
