@@ -35,9 +35,12 @@
   },
   "overrides": [
     {
-      "includes": ["**/src/data/interestData.ts"],
+      "includes": [
+        "**/src/data/interestData.ts",
+        "**/src/data/interestData.example.ts"
+      ],
       "formatter": {
-        "lineWidth": 1
+        "lineWidth": 240
       }
     }
   ]
