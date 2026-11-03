@@ -8,7 +8,7 @@ export const baseCategories: InterestNode[] = [
   { name: "読書", isRoot: true },
   { name: "ゲーム", parents: ["コンテンツ"] },
   { name: "SNS", isRoot: true },
-  { name: "言語", isRoot: true },
+  { name: "ことば", isRoot: true },
   { name: "インターネット", isRoot: true },
   { name: "学問", isRoot: true },
   { name: "生物", isRoot: true },
@@ -67,9 +67,10 @@ export const baseCategories: InterestNode[] = [
   { name: "fedibird", parents: ["SNS"] },
   { name: "GitHub", url: "https://github.com/nullhodo", parents: ["SNS"] },
 
-  // --- 言語の配下 ---
+  // --- ことばの配下 ---
+  {name: "言語", parents: ["ことば"] },
   { name: "日本語", parents: ["言語"] },
-  { name: "文字", parents: ["言語"] },
+  { name: "文字", parents: ["ことば"] },
   { name: "漢字", parents: ["文字"] },
   { name: "部首", parents: ["漢字"] },
   { name: "旧字体", parents: ["漢字"] },
@@ -80,7 +81,7 @@ export const baseCategories: InterestNode[] = [
   { name: "カリグラフィー", parents: ["文字", "アート"] },
   { name: "英語", parents: ["言語"] },
   { name: "韓国語", parents: ["言語"] },
-  { name: "韻", parents: ["言語"] },
+  { name: "韻", parents: ["ことば"] },
 
   // --- インターネットの配下 ---
   { name: "ニコニコ動画", parents: ["インターネット"] },
@@ -92,9 +93,9 @@ export const baseCategories: InterestNode[] = [
   { name: "発達心理学", parents: ["心理学"] },
   { name: "認知心理学", parents: ["心理学"] },
   { name: "統計学\nデータサイエンス", parents: ["学問"] },
-  { name: "言語学", parents: ["学問", "言語"] },
+  { name: "言語学", parents: ["学問", "ことば"] },
   { name: "数学", parents: ["学問"] },
-  { name: "法学", parents: ["学問"] },
+  { name: "法学", parents: ["学問", "ことば"] },
   { name: "Rules-based", parents: ["法学", "プログラミング"] },
 
   // --- 生物の配下 ---
@@ -106,6 +107,7 @@ export const baseCategories: InterestNode[] = [
   // --- アニメ・漫画の配下 ---
   { name: "蟲師", parents: ["アニメ・漫画"] },
   { name: "灰羽連盟", parents: ["アニメ・漫画"] },
+  { name: "宇宙よりも遠い場所", parents: ["アニメ・漫画"] },
 
   // --- ソフトウェア探索の配下 ---
   // { name: "Web Browser", parents: ["ソフトウェア探索 (?)"] },
